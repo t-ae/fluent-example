@@ -33,21 +33,29 @@ final class AppTests: XCTestCase {
             return message.save(on: req).transform(to: $0)
         }
         
+        // Create new decodable which has aliased fields.
+        struct FromPerson: Decodable {
+            var from_id: Int
+            var from_name: String
+        }
+        
         // Fetch
         future = future.flatMap {_ in 
             req.databaseConnection(to: .sqlite).flatMap { (conn: SQLiteConnection) in
+                // use column name aliases for from_persons
                 conn.raw("""
-                    SELECT * FROM messages
+                    SELECT messages.*,
+                        from_persons.id AS "from_id",
+                        from_persons.name AS "from_name",
+                        to_persons.*
+                    FROM messages
                     JOIN persons AS from_persons ON messages.from_person_id = from_persons.id
                     JOIN persons AS to_persons ON messages.to_person_id = to_persons.id
                     """).all().map { rows in
-                        try rows.map { row -> (Message, Person, Person) in
-                            // In MySQL, the row has aliased table name.
-                            // In SQLite, however, the row has original table name.
-                            // And dupulicated columns are omitted or overriden.
+                        try rows.map { row -> (Message, FromPerson, Person) in
                             let msg = try conn.decode(Message.self, from: row, table: "messages")
-                            let from = try conn.decode(Person.self, from: row, table: "from_persons")
-                            let to = try conn.decode(Person.self, from: row, table: "to_persons")
+                            let from = try conn.decode(FromPerson.self, from: row, table: "persons") // has original table name
+                            let to = try conn.decode(Person.self, from: row, table: "persons") // has original table name
                             return (msg, from, to)
                         }
                 }
