@@ -42,7 +42,7 @@ final class AppTests: XCTestCase {
                     JOIN persons AS to_persons ON messages.to_person_id = to_persons.id
                     """).all().map { rows in
                         try rows.map { row -> (Message, Person, Person) in
-                            // In MySQL, there the row has aliased table name.
+                            // In MySQL, the row has aliased table name.
                             // In SQLite, however, the row has original table name.
                             // And dupulicated columns are omitted or overriden.
                             let msg = try conn.decode(Message.self, from: row, table: "messages")
